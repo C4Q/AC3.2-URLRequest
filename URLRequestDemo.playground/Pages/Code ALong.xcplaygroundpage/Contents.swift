@@ -7,7 +7,7 @@ protocol JSONable {
 }
 
 // TODO: Have PlaceholderPost conform to JSONable
-struct PlaceholderPost {
+struct PlaceholderPost: CustomStringConvertible {
   /*
    Instructions on completing the PlaceholderPost model
    1. look at the Docs / Postman
@@ -54,6 +54,56 @@ struct PlaceholderPost {
   
 }
 
+struct PlaceholderComment: JSONable {
+  // 1. Instance variables
+  let postId: Int
+  let id: Int
+  let name: String
+  let email: String
+  let body: String
+  
+  init?(json: [String : Any]) {
+    
+    if
+      let jId = json["id"] as? Int,
+      let jPostId = json["postId"] as? Int,
+      let jName = json["name"] as? String,
+      let jEmail = json["email"] as? String,
+      let jBody = json["body"] as? String {
+      self.id = jId
+      self.postId = jPostId
+      self.name = jName
+      self.email = jEmail
+      self.body = jBody
+      
+//      self = PlaceholderComment(postId: jPostId, id: jId, name: jName, email: jEmail, body: jBody)
+    }
+    else {
+      return nil
+    }
+    
+//    return nil
+  }
+  
+//  init(postId: Int, id: Int, name: String, email: String, body: String) {
+//    self.postId = postId
+//    self.id = id
+//    self.name = name
+//    self.email = email
+//    self.body = body
+//  }
+  
+  func toJson() -> [String : Any] {
+    let myDict: [String : Any] = [
+      "id" : self.id,
+      "postId" : self.postId,
+      "name" : self.name,
+      "email": self.email,
+      "body" : self.body,
+    ]
+    return myDict
+  }
+}
 
 // MARK: - Morning Example (Reviewing what we know w/ URLSession)
 func baselineURLSession() {
@@ -187,7 +237,7 @@ func getPlaceholderRequest() {
               let id = weirdJson["id"] as? Int,
               let title = weirdJson["title"] as? String,
               let body = weirdJson["body"] as? String
-              else { return }
+            else { return }
             
             let weirdResult = PlaceholderPost(userID: userId, id: id, title: title, body: body)
             weirdResultArray.append(weirdResult)
@@ -255,7 +305,7 @@ func postPlaceholderRequest() {
         let bohemianJson = try JSONSerialization.jsonObject(with: data!, options: []) as? [String : Any]
         
         if let validJson = bohemianJson {
-          
+          print(validJson)
           /*
            What do we do with this data now, assuming it's valid? Well, whatever you need to do with it. In this contrived example, we don't really need to do anything. Maybe we could print out the PlaceholderPost object returned if we wanted.
            
@@ -287,14 +337,182 @@ func postPlaceholderRequest() {
 }
 
 // TODO: Exercises
-func putPlaceholderRequest() { /* later code! */ }
-func deletePlaceholderRequest() {  /* later code! */ }
+func putPlaceholderRequest() { /* later code! */
+  let url = URL(string: "http://jsonplaceholder.typicode.com/posts/1")!
+  var request = URLRequest(url: url)
+  request.httpMethod = "PUT"
+  request.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+  
+  let body: [String : Any] = [
+    "id" : 1,
+    "userId" : 1,
+    "title" : "New Title",
+    "body" : "New Body"
+  ]
+  
+  do {
+    let data = try JSONSerialization.data(withJSONObject: body, options: [])
+    
+    request.httpBody = data
+  }
+  catch {
+    print("Error serializing to Data: \(error)")
+  }
+  
+  let session = URLSession(configuration: .default)
+  session.dataTask(with: request, completionHandler: {(data: Data?, response: URLResponse?, error: Error?) in
+    
+    if error != nil {
+      print(error.unsafelyUnwrapped)
+    }
+    
+    if data != nil {
+      print(data!)
+      
+      do {
+        let json = try JSONSerialization.jsonObject(with: data!, options: []) as? [String : Any]
+        
+        if let validJson = json {
+          print(validJson)
+        }
+        
+      }
+      catch {
+        
+      }
+    }
+    
+  }).resume()
+}
 
+func deletePlaceholderRequest() {
+  let url = URL(string: "http://jsonplaceholder.typicode.com/posts/1")!
+  var request = URLRequest(url: url)
+  request.httpMethod = "DELETE"
+  request.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+  
+  let session = URLSession(configuration: .default)
+  session.dataTask(with: request, completionHandler: {(data: Data?, response: URLResponse?, error: Error?) in
+  
+    if error != nil {
+      print(error.unsafelyUnwrapped)
+    }
+    
+    if data != nil {
+      print(data!)
+
+      do {
+        let json = try JSONSerialization.jsonObject(with: data!, options: []) as? [String : Any]
+        
+        if let validJson = json {
+          print(validJson)
+        }
+        
+      }
+      catch {
+        print("Error")
+      }
+
+    }
+  
+  }).resume()
+}
+
+// MARK: - Comments Functions
+func postComment() {
+  let url = URL(string: "http://jsonplaceholder.typicode.com/comments")!
+  
+  var request = URLRequest(url: url)
+  request.httpMethod = "POST"
+  request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+  
+  let dict: [String : Any] = [
+    "postId"  : 1,
+    "id" : 1,
+    "name" : "Tom",
+    "email" : "tom@here.com",
+    "body" : "Tom has a lovely body"
+  ]
+  
+  do {
+    let commentData = try JSONSerialization.data(withJSONObject: dict, options: [])
+    
+    request.httpBody = commentData
+  }
+  catch {
+    print("Error: \(error)")
+  }
+  
+  let session = URLSession(configuration: .default)
+  session.dataTask(with: request, completionHandler: {(data: Data?, response: URLResponse?, error: Error?) in
+    
+    if error != nil {
+      print(error.unsafelyUnwrapped)
+    }
+    
+    if response != nil {
+      print(response.unsafelyUnwrapped)
+      if let httpResponse = response as? HTTPURLResponse {
+        print(httpResponse.statusCode)
+      }
+    }
+    
+    if data != nil {
+      print(data!)
+      
+      do {
+        let json = try JSONSerialization.jsonObject(with: data!, options: []) as? [String : Any]
+        dump(json)
+        
+        if let validJson = json{
+          dump(validJson)
+          
+          let reconstructedObject = PlaceholderComment(json: validJson)
+          dump(reconstructedObject)
+        }
+      }
+      catch {
+        print("Error encountered serializing: \(error)")
+      }
+    }
+  
+  }).resume()
+}
+
+func putComment() {
+  
+}
+
+func deleteComment() {
+  
+}
+
+/*
+  Count Quackula, what components do I need for each of these requests? 
+ 
+  1. Id of the comment/user/etc
+  2. http verb (always)
+  3. possibly dict for the body (patch/put/post)
+  4. possibly headers (put/post)
+ 
+  Ah yes. That is how I should plan out this function.
+ 
+  Q1. What other parameter could be added to make this work with other endpoints?
+  Q2. What else would need to be changed to support different endpoints + GET requests?
+ */
+func makeCommentsRequest(commentId: Int = 1, method: String = "GET", body: [String : Any]?, headers: [String : String]?) {
+  
+  
+}
 
 //baselineURLSession()
 //newRequest()
 //getPlaceholderRequest()
 postPlaceholderRequest()
+//putPlaceholderRequest()
+//deletePlaceholderRequest()
+
+postComment()
 
 /*
  Why do we need this needsIndefiniteExecution propery set to true?
