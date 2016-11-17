@@ -76,13 +76,14 @@ struct PlaceholderComment: JSONable {
       self.email = jEmail
       self.body = jBody
       
+      return
 //      self = PlaceholderComment(postId: jPostId, id: jId, name: jName, email: jEmail, body: jBody)
     }
-    else {
-      return nil
-    }
+//    else {
+//      return nil
+//    }
     
-//    return nil
+    return nil
   }
   
 //  init(postId: Int, id: Int, name: String, email: String, body: String) {
@@ -500,15 +501,20 @@ func deleteComment() {
   Q1. What other parameter could be added to make this work with other endpoints?
   Q2. What else would need to be changed to support different endpoints + GET requests?
  */
-func makeCommentsRequest(commentId: Int = 1, method: String = "GET", body: [String : Any]?, headers: [String : String]?) {
+func makeRequest(endpoint: URL, method: String = "GET", body: [String : Any]?, headers: [String : String]?) {
   
-  
+  var request: URLRequest = URLRequest(url: endpoint)
+  if headers != nil {
+    for (key, value) in headers! {
+      request.setValue(value, forHTTPHeaderField: key)
+    }
+  }
 }
 
 //baselineURLSession()
 //newRequest()
 //getPlaceholderRequest()
-postPlaceholderRequest()
+//postPlaceholderRequest()
 //putPlaceholderRequest()
 //deletePlaceholderRequest()
 
