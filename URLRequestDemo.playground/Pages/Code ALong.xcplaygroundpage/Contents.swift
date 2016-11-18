@@ -76,23 +76,35 @@ struct PlaceholderComment: JSONable {
       self.email = jEmail
       self.body = jBody
       
+      // we must return early here! otherwise, execution continues on and hits 
+      // "return nil", returning nil when an actual object already has been created
+      // see: https://medium.com/@louistur/failable-initializers-with-default-property-values-7b223d2f1b3f#.wzccg3g1t
       return
-//      self = PlaceholderComment(postId: jPostId, id: jId, name: jName, email: jEmail, body: jBody)
     }
-//    else {
-//      return nil
-//    }
     
     return nil
   }
   
-//  init(postId: Int, id: Int, name: String, email: String, body: String) {
-//    self.postId = postId
-//    self.id = id
-//    self.name = name
-//    self.email = email
-//    self.body = body
-//  }
+  /*
+    K, I made a mistake in the explanation of member-wise inits in class. Structs do normally come with a "free" initializer in two scenarios:
+   1) If you have default values for all of your properties, you're able to instantiate the struct by simply calling StructName().
+   2) Structs get a 'member-wise' initializer if they do not define any of their own custom init's
+   
+   But:
+   “Note that if you define a custom initializer for a value type, you will no longer have access to the default initializer (or the memberwise initializer, if it is a structure) for that type. ”
+   Excerpt From: Apple Inc. “The Swift Programming Language (Swift 3).” iBooks.
+   
+   So adding in the init?(json: [String : AnyObject] means we lose our free member-wise initializer. But just because we lose it, doesn't 
+   mean we have to add our own! We just have to explicitly write our own if we want/need it.
+   
+   There is one way around this though: 
+   “If you want your custom value type to be initializable with the default initializer and memberwise initializer, and also with your own custom initializers, write your custom initializers in an extension rather than as part of the value type’s original implementation. For more information, see Extensions.”
+   
+   Excerpt From: Apple Inc. “The Swift Programming Language (Swift 3).” iBooks.
+   
+   To see what I mean, check out my new model, PlaceholderPhoto, PlaceholderAlbum, below.
+   */
+
   
   func toJson() -> [String : Any] {
     let myDict: [String : Any] = [
@@ -105,6 +117,69 @@ struct PlaceholderComment: JSONable {
     return myDict
   }
 }
+
+// PlaceholderPhoto: Free member-wise init
+struct PlaceholderPhoto {
+  let albumId: Int
+  let id: Int
+  let title: String
+  let url: String
+  let thumbnailUrl: String
+  // this struct gets a free, member-wise initializer: PlaceholderPhoto(albumId: Int, id: Int, title: String, url: String, thumbnailUrl: String)
+}
+PlaceholderPhoto(albumId: 1, id: 1, title: "", url: "", thumbnailUrl: "")
+
+// PlaceholderAlbum: Free default init
+struct PlaceholderAlbum {
+  let userId: Int = -1
+  let id: Int = -1
+  let title: String = "Default Title"
+  
+  // this struct gets a free default init: PlaceholderAlbum()
+}
+PlaceholderAlbum()
+
+// PlaceholderTodo: uses extensions to keep it's free member-wise init, while giving it a custom one as well.
+struct PlaceholderTodo {
+  let userId: Int
+  let id: Int
+  let title: String
+  let completed: Bool
+  
+  // Free member-wise init: PlaceholderTodo(userId: Int, id: Int, title: String, completed: Bool)
+}
+
+extension PlaceholderTodo: JSONable {
+
+  init?(json: [String : Any]) {
+    
+    guard let userId = json["userId"] as? Int,
+    let id = json["id"] as? Int,
+    let title = json["title"] as? String,
+    let completed = json["completed"] as? Bool else {
+      return nil
+    }
+    
+    self.userId = userId
+    self.id = id
+    self.title = title
+    self.completed = completed
+  }
+  
+  func toJson() -> [String : Any] {
+    return [
+      "userId" : self.userId,
+      "id" : self.id,
+      "title" : self.title,
+      "completed" : self.completed
+    ]
+  }
+  
+  // Still has member-wise + new init from JSONable protocol
+}
+
+PlaceholderTodo(json: [:])
+PlaceholderPost(userID: 1, id: 1, title: "", body: "")
 
 // MARK: - Morning Example (Reviewing what we know w/ URLSession)
 func baselineURLSession() {
@@ -425,6 +500,8 @@ func postComment() {
   
   var request = URLRequest(url: url)
   request.httpMethod = "POST"
+  
+  // this line below was the fix to our malformed return json
   request.addValue("application/json", forHTTPHeaderField: "Content-Type")
   
   let dict: [String : Any] = [
@@ -448,13 +525,13 @@ func postComment() {
   session.dataTask(with: request, completionHandler: {(data: Data?, response: URLResponse?, error: Error?) in
     
     if error != nil {
-      print(error.unsafelyUnwrapped)
+      print(error.unsafelyUnwrapped) // unsafelyUnwrapped means the same as ! 
     }
     
     if response != nil {
       print(response.unsafelyUnwrapped)
       if let httpResponse = response as? HTTPURLResponse {
-        print(httpResponse.statusCode)
+        print(httpResponse.statusCode) // we were looking for status codes in the 200's
       }
     }
     
@@ -499,16 +576,20 @@ func deleteComment() {
   Ah yes. That is how I should plan out this function.
  
   Q1. What other parameter could be added to make this work with other endpoints?
-  Q2. What else would need to be changed to support different endpoints + GET requests?
+  Q2. What would need to be changed to support different endpoints + GET requests?
+ 
+  A1 & A2: adding a URL parameter for endpoint (implemented below)
  */
 func makeRequest(endpoint: URL, method: String = "GET", body: [String : Any]?, headers: [String : String]?) {
   
+  // Q1. How would you handle header info?
   var request: URLRequest = URLRequest(url: endpoint)
   if headers != nil {
     for (key, value) in headers! {
       request.setValue(value, forHTTPHeaderField: key)
     }
   }
+  
 }
 
 //baselineURLSession()
@@ -517,8 +598,7 @@ func makeRequest(endpoint: URL, method: String = "GET", body: [String : Any]?, h
 //postPlaceholderRequest()
 //putPlaceholderRequest()
 //deletePlaceholderRequest()
-
-postComment()
+//postComment()
 
 /*
  Why do we need this needsIndefiniteExecution propery set to true?
